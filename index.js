@@ -1,4 +1,4 @@
-import express, { response } from "express";
+import express from "express";
 const app = express();
 const PORT = 3000;
 
@@ -24,17 +24,12 @@ versenyzok: [
 };
 
 
-app.listen(PORT, (hiba) => {
-    if (hiba) {
-        throw hiba;
-    }
-    console.log(`A szerver fut a ${PORT} porton`)
-})
 
 function naplozo(req, res, next)
 {
     const ido = new Date().toLocaleDateString("hu-HU");
     console.log(`${ido} ${req.method} ${req.originalUrl}`)
+    next()
 }
 function ervenyesId(req, res, next)
 {
@@ -42,7 +37,7 @@ function ervenyesId(req, res, next)
     if (!Number.isInteger(id) || id < 0) {
         return res.status(400).json({ hiba: "Az id nem megfelelő" })
     }
-    req.versenyzId = id
+    req.versenyzoId = id
     next()
 }
 function versenyzoKereses(req,res,next)
@@ -55,9 +50,36 @@ function versenyzoKereses(req,res,next)
     next()
 }
 
+function apiKulcs (req, res, next)
+{
+    if (req.get("X-Api-Kulcs") !== "pitstop") {
+        return res.status(401).json({hiba: "nem létező api kulcs"})
+    }
 
-app.use(naplozo)
+
+    next();
+}
+
+function ervenyesVersenyzo(req, res, next){
+    const {nev,nemzetiseg,cimek,elsoCim} = req.body
+    if (!nev || !nemzetiseg || !Number.isInteger(cimek) || !Number.isInteger(elsoCim)) {
+        return res.status(400).json({hiba: "A versenyző adatai nem megfelelőek"})
+    }
+    next()
+}
+
+function versenyzoTorles(req, res, next){
+    const index = adatok.versenyzok.findIndex((v) => v.id === req.versenyzoId)
+    if (index <= 0) {
+        return res.status(404).json({ hiba: "A versenyző nem található" })
+    }
+    adatok.versenyzok.splice(index, 1)
+    next()
+}
+
+app.use(naplozo);
 app.use(express.json())
+
 
 app.get("/api/versenyzok", (req, res) => {
     res.json(adatok.versenyzok)
@@ -65,4 +87,26 @@ app.get("/api/versenyzok", (req, res) => {
 
 app.get("/api/versenyzok/:id", ervenyesId, versenyzoKereses, (req, res) => {
     res.json(req.versenyzo)
+})
+
+app.post("/api/versenyzok",apiKulcs,ervenyesVersenyzo, (req, res, next) => {
+    const {nev,nemzetiseg,cimek,elsoCim} = req.body
+    const uj = {id: adatok.kovetkezoId, nev, nemzetiseg, cimek, elsoCim}
+    
+    adatok.kovetkezoId++
+    adatok.versenyzok.push(uj)
+    res.status(201).json(uj)
+})
+
+app.delete("/api/versenyzok/:id", ervenyesId, versenyzoTorles, (req, res) => {
+    console.log(`A versenyző törölve lett, id: ${req.params.id}`)
+    res.status(204).json(`A versenyző törölve lett, id: ${req.params.id}`)
+})
+
+
+app.listen(PORT, (hiba) => {
+    if (hiba) {
+        throw hiba;
+    }
+    console.log(`A szerver fut a ${PORT} porton`)
 })

@@ -11,3 +11,6 @@ GET {{host}}/api/versenyzok/99
 
 ###
 GET {{host}}/api/versenyzok/abc
+
+###
+POST {{host}}/api/versenyzok
